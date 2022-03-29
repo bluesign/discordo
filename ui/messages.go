@@ -95,7 +95,7 @@ func (mtv *MessagesTextView) onInputCapture(e *tcell.EventKey) *tcell.EventKey {
 			Highlight(ms[mtv.app.SelectedMessage].ID).
 			ScrollToHighlight()
 		return nil
-	case mtv.app.Config.Keys.OpenMessageActionsList:
+	case mtv.app.Config.Keys.OpenActionsList:
 		hs := mtv.app.MessagesTextView.GetHighlights()
 		if len(hs) == 0 {
 			return nil

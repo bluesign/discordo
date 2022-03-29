@@ -18,6 +18,7 @@ type App struct {
 	MessagesTextView  *MessagesTextView
 	MessageInputField *MessageInputField
 	Session           *astatine.Session
+	SelectedGuild     *astatine.Guild
 	SelectedChannel   *astatine.Channel
 	Config            *config.Config
 	SelectedMessage   int
