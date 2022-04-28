@@ -53,7 +53,7 @@ func main() {
 			}
 
 			app.DrawMainFlex()
-			app.SetFocus(app.GuildsList)
+			//app.SetFocus(app.GuildsList)
 		} else {
 			loginForm := ui.NewLoginForm(false)
 			loginForm.AddButton("Login", func() {
@@ -77,7 +77,7 @@ func main() {
 					}
 
 					app.DrawMainFlex()
-					app.SetFocus(app.GuildsList)
+					//app.SetFocus(app.GuildsList)
 
 					go keyring.Set(name, "token", lr.Token)
 				} else {
@@ -101,7 +101,7 @@ func main() {
 						}
 
 						app.DrawMainFlex()
-						app.SetFocus(app.GuildsList)
+						//app.SetFocus(app.GuildsList)
 
 						go keyring.Set(name, "token", lr.Token)
 					})

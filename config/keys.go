@@ -25,8 +25,8 @@ func newKeysConfig() KeysConfig {
 		OpenMessageActionsList: "Rune[a]",
 		OpenExternalEditor:     "Ctrl+E",
 
-		SelectPreviousMessage: "Up",
-		SelectNextMessage:     "Down",
+		SelectPreviousMessage: "Rune[k]",
+		SelectNextMessage:     "Rune[j]",
 		SelectFirstMessage:    "Home",
 		SelectLastMessage:     "End",
 	}

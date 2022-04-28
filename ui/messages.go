@@ -7,7 +7,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/atotto/clipboard"
@@ -17,8 +16,6 @@ import (
 	"github.com/rivo/tview"
 	"github.com/skratchdot/open-golang/open"
 )
-
-var linkRegex = regexp.MustCompile("https?://.+")
 
 type MessagesTextView struct {
 	*tview.TextView
@@ -41,6 +38,7 @@ func NewMessagesTextView(app *App) *MessagesTextView {
 	mtv.SetBorder(true)
 	mtv.SetBorderPadding(0, 0, 1, 1)
 	mtv.SetInputCapture(mtv.onInputCapture)
+
 	return mtv
 }
 
@@ -55,6 +53,7 @@ func (mtv *MessagesTextView) onInputCapture(e *tcell.EventKey) *tcell.EventKey {
 	}
 
 	switch e.Name() {
+
 	case mtv.app.Config.Keys.SelectPreviousMessage:
 		if len(mtv.app.MessagesTextView.GetHighlights()) == 0 {
 			mtv.app.SelectedMessage = len(ms) - 1
@@ -69,6 +68,7 @@ func (mtv *MessagesTextView) onInputCapture(e *tcell.EventKey) *tcell.EventKey {
 			Highlight(ms[mtv.app.SelectedMessage].ID).
 			ScrollToHighlight()
 		return nil
+
 	case mtv.app.Config.Keys.SelectNextMessage:
 		if len(mtv.app.MessagesTextView.GetHighlights()) == 0 {
 			mtv.app.SelectedMessage = len(ms) - 1
@@ -83,112 +83,162 @@ func (mtv *MessagesTextView) onInputCapture(e *tcell.EventKey) *tcell.EventKey {
 			Highlight(ms[mtv.app.SelectedMessage].ID).
 			ScrollToHighlight()
 		return nil
+
 	case mtv.app.Config.Keys.SelectFirstMessage:
 		mtv.app.SelectedMessage = 0
 		mtv.app.MessagesTextView.
 			Highlight(ms[mtv.app.SelectedMessage].ID).
 			ScrollToHighlight()
 		return nil
+
 	case mtv.app.Config.Keys.SelectLastMessage:
 		mtv.app.SelectedMessage = len(ms) - 1
 		mtv.app.MessagesTextView.
 			Highlight(ms[mtv.app.SelectedMessage].ID).
 			ScrollToHighlight()
 		return nil
-	case mtv.app.Config.Keys.OpenMessageActionsList:
-		hs := mtv.app.MessagesTextView.GetHighlights()
-		if len(hs) == 0 {
+
+	case "Rune[r]":
+		if len(mtv.app.MessagesTextView.GetHighlights()) == 0 {
 			return nil
 		}
 
-		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, hs[0])
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
 		if m == nil {
 			return nil
 		}
 
-		actionsList := tview.NewList()
-		actionsList.ShowSecondaryText(false)
-		actionsList.SetDoneFunc(func() {
-			mtv.app.
-				SetRoot(mtv.app.MainFlex, true).
-				SetFocus(mtv.app.MessagesTextView)
-		})
-		actionsList.SetTitle("Press the Escape key to close")
-		actionsList.SetTitleAlign(tview.AlignLeft)
-		actionsList.SetBorder(true)
-		actionsList.SetBorderPadding(0, 0, 1, 1)
-
-		// If the client user has `SEND_MESSAGES` permission, add the appropriate actions to the list.
-		if discord.HasPermission(mtv.app.Session.State, mtv.app.SelectedChannel.ID, astatine.PermissionSendMessages) {
-			actionsList.AddItem("Reply", "", 'r', func() {
-				mtv.app.MessageInputField.SetTitle("Replying to " + m.Author.String())
-				mtv.app.
-					SetRoot(mtv.app.MainFlex, true).
-					SetFocus(mtv.app.MessageInputField)
-			})
-
-			actionsList.AddItem("Mention Reply", "", 'R', func() {
-				mtv.app.MessageInputField.SetTitle("[@] Replying to " + m.Author.String())
-				mtv.app.
-					SetRoot(mtv.app.MainFlex, true).
-					SetFocus(mtv.app.MessageInputField)
-			})
-		}
-
-		// If the referenced message exists, add the appropriate actions to the list.
-		if m.ReferencedMessage != nil {
-			actionsList.AddItem("Select Reply", "", 'm', func() {
-				mtv.app.SelectedMessage, _ = discord.FindMessageByID(mtv.app.SelectedChannel.Messages, m.ReferencedMessage.ID)
-				mtv.app.MessagesTextView.
-					Highlight(m.ReferencedMessage.ID).
-					ScrollToHighlight()
-				mtv.app.
-					SetRoot(mtv.app.MainFlex, true).
-					SetFocus(mtv.app.MessagesTextView)
-			})
-		}
-
-		// If the content of the message contains link(s), add the appropriate actions to the list.
-		links := linkRegex.FindAllString(m.Content, -1)
-		if len(links) != 0 {
-			actionsList.AddItem("Open Link", "", 'l', func() {
-				for _, l := range links {
-					go open.Run(l)
-				}
-			})
-		}
-
-		// If the message contains attachments, add the appropriate actions to the actions list.
-		if len(m.Attachments) != 0 {
-			actionsList.AddItem("Download Attachment", "", 'd', func() {
-				go mtv.downloadAttachment(m.Attachments)
-				mtv.app.SetRoot(mtv.app.MainFlex, true)
-			})
-			actionsList.AddItem("Open Attachment", "", 'o', func() {
-				go mtv.openAttachment(m.Attachments)
-				mtv.app.SetRoot(mtv.app.MainFlex, true)
-			})
-		}
-
-		actionsList.AddItem("Copy Content", "", 'c', func() {
-			if err := clipboard.WriteAll(m.Content); err != nil {
-				return
-			}
-
-			mtv.app.SetRoot(mtv.app.MainFlex, true)
-			mtv.app.SetFocus(mtv.app.MessagesTextView)
-		})
-		actionsList.AddItem("Copy ID", "", 'i', func() {
-			if err := clipboard.WriteAll(m.ID); err != nil {
-				return
-			}
-
-			mtv.app.SetRoot(mtv.app.MainFlex, true)
-			mtv.app.SetFocus(mtv.app.MessagesTextView)
-		})
-
-		mtv.app.SetRoot(actionsList, true)
+		mtv.app.MessageInputField.SetTitle("Replying to " + m.Author.String())
+		mtv.app.
+			SetRoot(mtv.app.MainFlex, true).
+			SetFocus(mtv.app.MessageInputField)
 		return nil
+
+	case "Rune[m]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+
+		mtv.app.MessageInputField.SetTitle("[@] Replying to " + m.Author.String())
+		mtv.app.
+			SetRoot(mtv.app.MainFlex, true).
+			SetFocus(mtv.app.MessageInputField)
+		return nil
+
+	case "Rune[u]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+		go mtv.app.Session.MessageReactionAdd(m.ChannelID, m.ID, "👍")
+		return nil
+
+	case "Rune[t]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+		mtv.app.MessageInputField.SetTitle("New Thread:")
+		mtv.app.
+			SetRoot(mtv.app.MainFlex, true).
+			SetFocus(mtv.app.MessageInputField)
+
+		return nil
+
+	case "Rune[g]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+
+		if m.ReferencedMessage == nil {
+			//check thread
+			if m.Thread == nil {
+				return nil
+			}
+
+			mtv.app.Session.ThreadJoin(m.Thread.ID)
+
+			return nil
+		}
+
+		mtv.app.SelectedMessage, _ = discord.FindMessageByID(mtv.app.SelectedChannel.Messages, m.ReferencedMessage.ID)
+
+		mtv.app.SelectedMessage, _ = discord.FindMessageByID(mtv.app.SelectedChannel.Messages, m.ReferencedMessage.ID)
+		mtv.app.MessagesTextView.
+			Highlight(m.ReferencedMessage.ID).
+			ScrollToHighlight()
+		mtv.app.
+			SetRoot(mtv.app.MainFlex, true).
+			SetFocus(mtv.app.MessagesTextView)
+
+		return nil
+
+	case "Rune[XXO]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+
+		mtv.app.SelectedMessage, _ = discord.FindMessageByID(mtv.app.SelectedChannel.Messages, m.ReferencedMessage.ID)
+		mtv.app.MessagesTextView.
+			Highlight(m.ReferencedMessage.ID).
+			ScrollToHighlight()
+		mtv.app.
+			SetRoot(mtv.app.MainFlex, true).
+			SetFocus(mtv.app.MessagesTextView)
+
+		return nil
+
+	case "Rune[p]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+
+		for _, a := range m.Attachments {
+			if strings.HasSuffix(a.Filename, ".png") {
+				//var img *ansimage.ANSImage
+				//img, _ = ansimage.NewScaledFromURL(a.URL, 60, 60, color.Black, ansimage.ScaleModeFit, ansimage.NoDithering)
+				//mtv.app.MessagesTextView.Clear()
+
+				//w := tview.ANSIWriter()
+				//w.Write([]byte(img.Render()))
+			}
+		}
+
+	case "Rune[o]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+		go mtv.openAttachment(m.Attachments)
+		mtv.app.SetRoot(mtv.app.MainFlex, true)
+		return nil
+
+	case "Rune[d]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+		go mtv.downloadAttachment(m.Attachments)
+		mtv.app.SetRoot(mtv.app.MainFlex, true)
+		return nil
+
+	case "Rune[y]":
+		_, m := discord.FindMessageByID(mtv.app.SelectedChannel.Messages, mtv.app.MessagesTextView.GetHighlights()[0])
+		if m == nil {
+			return nil
+		}
+		if err := clipboard.WriteAll(m.Content); err != nil {
+			return nil
+		}
+
+		mtv.app.SetRoot(mtv.app.MainFlex, true)
+		mtv.app.SetFocus(mtv.app.MessagesTextView)
+		return nil
+
 	case "Esc":
 		mtv.app.SelectedMessage = -1
 		mtv.app.SetFocus(mtv.app.MainFlex)
@@ -286,22 +336,28 @@ func (mi *MessageInputField) onInputCapture(e *tcell.EventKey) *tcell.EventKey {
 
 		if len(mi.app.MessagesTextView.GetHighlights()) != 0 {
 			_, m := discord.FindMessageByID(mi.app.SelectedChannel.Messages, mi.app.MessagesTextView.GetHighlights()[0])
-			d := &astatine.MessageSend{
-				Content:         t,
-				Reference:       m.Reference(),
-				AllowedMentions: &astatine.MessageAllowedMentions{RepliedUser: false},
-			}
-			if strings.HasPrefix(mi.app.MessageInputField.GetTitle(), "[@]") {
-				d.AllowedMentions.RepliedUser = true
-			} else {
-				d.AllowedMentions.RepliedUser = false
-			}
 
-			go mi.app.Session.ChannelMessageSendComplex(m.ChannelID, d)
+			if strings.Contains(mi.app.MessageInputField.GetTitle(), "Thread") {
+				go mi.app.Session.MessageThreadStart(m.ChannelID, m.ID, t, 1440)
+			}
+			if strings.Contains(mi.app.MessageInputField.GetTitle(), "Reply") {
 
+				d := &astatine.MessageSend{
+					Content:         t,
+					Reference:       m.Reference(),
+					AllowedMentions: &astatine.MessageAllowedMentions{RepliedUser: false},
+				}
+				if strings.HasPrefix(mi.app.MessageInputField.GetTitle(), "[@]") {
+					d.AllowedMentions.RepliedUser = true
+				} else {
+					d.AllowedMentions.RepliedUser = false
+				}
+
+				go mi.app.Session.ChannelMessageSendComplex(m.ChannelID, d)
+
+			}
 			mi.app.SelectedMessage = -1
 			mi.app.MessagesTextView.Highlight()
-
 			mi.app.MessageInputField.SetTitle("")
 		} else {
 			go mi.app.Session.ChannelMessageSend(mi.app.SelectedChannel.ID, t)

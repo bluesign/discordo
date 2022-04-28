@@ -9,7 +9,7 @@ import (
 	"github.com/ayntgl/discordo/discord"
 )
 
-func buildMessage(app *App, m *astatine.Message) []byte {
+func buildMessage(app *App, m *astatine.Message, old *astatine.Message) []byte {
 	var b strings.Builder
 
 	switch m.Type {
@@ -20,20 +20,34 @@ func buildMessage(app *App, m *astatine.Message) []byte {
 		b.WriteString("[\"")
 		b.WriteString(m.ID)
 		b.WriteString("\"]")
-		// Build the message associated with crosspost, channel follow add, pin, or a reply.
-		buildReferencedMessage(&b, m.ReferencedMessage, app.Session.State.User.ID)
 
-		if app.Config.General.Timestamps {
-			b.WriteString("[::d]")
-			b.WriteString(m.Timestamp.Format(time.Stamp))
-			b.WriteString("[::-]")
-			b.WriteByte(' ')
+		if old == nil || old.Author.Username != m.Author.Username {
+			b.WriteString("\n")
 		}
 
 		// Build the author of this message.
-		buildAuthor(&b, m.Author, app.Session.State.User.ID)
+		if old == nil || (m.ReferencedMessage != nil) {
+			buildReferencedMessage(&b, m.ReferencedMessage, app.Session.State.User.ID)
+		}
+
+		if old == nil || old.Author.Username != m.Author.Username {
+			pre := ""
+			if m.Thread != nil {
+				pre = fmt.Sprintf(" (thread %d messages) ", m.Thread.MessageCount)
+			}
+			b.WriteString(buildAuthor(m.Author, app.Session.State.User.ID, fmt.Sprintf("%s %s", pre, m.Timestamp.Format(time.Stamp))))
+			b.WriteString("\n")
+		}
+
+		/*b.WriteString("[::d]")
+		b.WriteString(m.Timestamp.Format(time.Stamp))
+		b.WriteString("[::-]")
+		b.WriteByte('\n')*/
+
+		// Build the message associated with crosspost, channel follow add, pin, or a reply.
 
 		// Build the contents of the message.
+
 		buildContent(&b, m, app.Session.State.User.ID)
 
 		if m.EditedTimestamp != nil {
@@ -50,7 +64,8 @@ func buildMessage(app *App, m *astatine.Message) []byte {
 		// therefore be used to mark the end of a region.
 		b.WriteString("[\"\"]")
 
-		b.WriteByte('\n')
+		b.WriteString("\n")
+
 	case astatine.MessageTypeGuildMemberJoin:
 		b.WriteString("[#5865F2]")
 		b.WriteString(m.Author.Username)
@@ -83,25 +98,45 @@ func buildMessage(app *App, m *astatine.Message) []byte {
 
 func buildReferencedMessage(b *strings.Builder, rm *astatine.Message, clientID string) {
 	if rm != nil {
-		b.WriteString(" ╭ ")
-		b.WriteString("[::d]")
-		buildAuthor(b, rm.Author, clientID)
+		b.WriteString("[::d] > ")
+		b.WriteString(buildAuthor(rm.Author, clientID, ""))
+		b.WriteString("[::d] ")
 
 		if rm.Content != "" {
 			rm.Content = buildMentions(rm.Content, rm.Mentions, clientID)
-			b.WriteString(discord.ParseMarkdown(rm.Content))
+			str := discord.ParseMarkdown(rm.Content)
+			if len(str) > 700 {
+				str = str[:700]
+			}
+			b.WriteString(str)
 		}
 
+		b.WriteString("[::-]")
 		b.WriteString("[::-]")
 		b.WriteByte('\n')
 	}
 }
 
 func buildContent(b *strings.Builder, m *astatine.Message, clientID string) {
+
 	if m.Content != "" {
 		m.Content = buildMentions(m.Content, m.Mentions, clientID)
-		b.WriteString(discord.ParseMarkdown(m.Content))
+
+		parsed := discord.ParseMarkdown(m.Content)
+
+		b.WriteString(parsed)
+
+		//w.Write([]byte(img.Render()))
+
+		reactions := ""
+		for _, react := range m.Reactions {
+			reactions = fmt.Sprintf("%s %d %s ", reactions, react.Count, react.Emoji.Name)
+		}
+		if reactions != "" {
+			b.WriteString(fmt.Sprintf("\n{ %s }", reactions))
+		}
 	}
+
 }
 
 func buildEmbeds(b *strings.Builder, es []*astatine.MessageEmbed) {
@@ -179,11 +214,28 @@ func buildEmbeds(b *strings.Builder, es []*astatine.MessageEmbed) {
 
 func buildAttachments(b *strings.Builder, as []*astatine.MessageAttachment) {
 	for _, a := range as {
+
 		b.WriteByte('\n')
 		b.WriteByte('[')
 		b.WriteString(a.Filename)
 		b.WriteString("]: ")
 		b.WriteString(a.URL)
+		/*
+			if strings.HasSuffix(a.Filename, ".png") {
+
+				var img *ansimage.ANSImage
+				img, _ = ansimage.NewScaledFromURL(a.URL, 60, 60, color.Black, ansimage.ScaleModeFit, ansimage.NoDithering)
+				w := tview.ANSIWriter(b)
+				w.Write([]byte(img.Render()))
+			} else {
+				b.WriteByte('\n')
+				b.WriteByte('[')
+				b.WriteString(a.Filename)
+				b.WriteString("]: ")
+				b.WriteString(a.URL)
+
+			}*/
+
 	}
 }
 
@@ -209,18 +261,14 @@ func buildMentions(content string, mentions []*astatine.User, clientID string) s
 	return content
 }
 
-func buildAuthor(b *strings.Builder, u *astatine.User, clientID string) {
+func buildAuthor(u *astatine.User, clientID string, timeStamp string) string {
+	color := "[#ED4245]"
 	if u.ID == clientID {
-		b.WriteString("[#57F287]")
-	} else {
-		b.WriteString("[#ED4245]")
+		color = "[#57F287]"
 	}
 
-	b.WriteString(u.Username)
-	b.WriteString("[-] ")
-	// If the message author is a bot account, render the message with bot label
-	// for distinction.
-	if u.Bot {
-		b.WriteString("[#EB459E]BOT[-] ")
-	}
+	msg := fmt.Sprintf("%s%s[-][::d] %s[::-]", color, u.Username, timeStamp)
+
+	return msg
+
 }
