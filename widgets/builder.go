@@ -1,4 +1,4 @@
-package ui
+package widgets
 
 import (
 	"fmt"
@@ -6,10 +6,14 @@ import (
 	"time"
 
 	"github.com/ayntgl/astatine"
-	"github.com/ayntgl/discordo/discord"
+	"github.com/bluesign/discordo/discord"
 )
 
-func buildMessage(app *App, m *astatine.Message, old *astatine.Message) []byte {
+func BuildMessage(Session *astatine.Session, m *astatine.Message, old *astatine.Message) []byte {
+	return buildMessage(Session, m, old)
+}
+
+func buildMessage(Session *astatine.Session, m *astatine.Message, old *astatine.Message) []byte {
 	var b strings.Builder
 
 	switch m.Type {
@@ -27,7 +31,7 @@ func buildMessage(app *App, m *astatine.Message, old *astatine.Message) []byte {
 
 		// Build the author of this message.
 		if old == nil || (m.ReferencedMessage != nil) {
-			buildReferencedMessage(&b, m.ReferencedMessage, app.Session.State.User.ID)
+			buildReferencedMessage(&b, m.ReferencedMessage, Session.State.User.ID)
 		}
 
 		if old == nil || old.Author.Username != m.Author.Username {
@@ -35,7 +39,7 @@ func buildMessage(app *App, m *astatine.Message, old *astatine.Message) []byte {
 			if m.Thread != nil {
 				pre = fmt.Sprintf(" (thread %d messages) ", m.Thread.MessageCount)
 			}
-			b.WriteString(buildAuthor(m.Author, app.Session.State.User.ID, fmt.Sprintf("%s %s", pre, m.Timestamp.Format(time.Stamp))))
+			b.WriteString(buildAuthor(m.Author, Session.State.User.ID, fmt.Sprintf("%s %s", pre, m.Timestamp.Format(time.Stamp))))
 			b.WriteString("\n")
 		}
 
@@ -48,7 +52,7 @@ func buildMessage(app *App, m *astatine.Message, old *astatine.Message) []byte {
 
 		// Build the contents of the message.
 
-		buildContent(&b, m, app.Session.State.User.ID)
+		buildContent(&b, m, Session.State.User.ID)
 
 		if m.EditedTimestamp != nil {
 			b.WriteString(" [::d](edited)[::-]")

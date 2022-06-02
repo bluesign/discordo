@@ -1,0 +1,38 @@
+# 
+# aerc default styleset
+# 
+# This styleset uses the terminal defaults as its base.
+# More information on how to configure the styleset can be found in
+# the aerc-stylesets(7) manpage. Please read the manual before
+# modifying or creating a styleset.
+
+*.default=true
+*.selected.reverse=toggle
+*.bg=#1d2021
+*.fg=#d5c4a1
+
+tab.bg=#ebdbb2
+tab.fg=#3c3836
+
+tree_alert.fg=#d79921
+
+title.reverse=true
+header.bold=true
+
+
+*error.bold=true
+error.fg=red
+warning.fg=yellow
+success.fg=green
+
+statusline*.default=true
+
+statusline_default.reverse=true
+statusline_error.fg=red
+statusline_error.reverse=true
+
+tab.reverse=true
+border.reverse = true
+
+selector_focused.reverse=true
+selector_chooser.bold=true
