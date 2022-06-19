@@ -6,9 +6,8 @@ import (
 	"strings"
 	"unicode"
 
-	"github.com/google/shlex"
-
 	"github.com/bluesign/discordo/widgets"
+	"github.com/google/shlex"
 )
 
 type Command interface {
