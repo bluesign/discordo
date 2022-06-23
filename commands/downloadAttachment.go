@@ -19,25 +19,25 @@ func (DownloadAttachment) Aliases() []string {
 	return []string{"download"}
 }
 
-func (DownloadAttachment) Complete(aerc *widgets.Aerc, args []string) []string {
+func (DownloadAttachment) Complete(aerc *widgets.Application, args []string) []string {
 
 	return []string{}
 }
 
-func (DownloadAttachment) Execute(aerc *widgets.Aerc, args []string) error {
+func (DownloadAttachment) Execute(aerc *widgets.Application, args []string) error {
 	if len(args) < 1 {
 		return errors.New("Usage: download")
 	}
 
-	if aerc.AccountView.MessageList() == nil || len(aerc.AccountView.MessageList().GetHighlights()) == 0 {
+	if aerc.Controller.MessageList() == nil || len(aerc.Controller.MessageList().GetHighlights()) == 0 {
 		return errors.New("No Message Selected")
 	}
 
-	_, m := discord.FindMessageByID(aerc.AccountView.MessageList().Messages, aerc.AccountView.MessageList().GetHighlights()[0])
+	_, m := discord.FindMessageByID(aerc.Controller.SelectedChannel().Messages, aerc.Controller.MessageList().GetHighlights()[0])
 	if m == nil {
 		return errors.New("No Message Selected")
 	}
 
-	go aerc.AccountView.MessageList().DownloadAttachment(m.Attachments)
+	go aerc.Controller.MessageList().DownloadAttachment(m.Attachments)
 	return nil
 }

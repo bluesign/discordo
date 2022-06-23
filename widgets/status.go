@@ -14,7 +14,7 @@ type StatusLine struct {
 	ui.Invalidatable
 	stack    []*StatusMessage
 	fallback StatusMessage
-	aerc     *Aerc
+	aerc     *Application
 	uiConfig config.UIConfig
 }
 
@@ -107,7 +107,7 @@ func (status *StatusLine) Expire() {
 	status.stack = nil
 }
 
-func (status *StatusLine) SetAerc(aerc *Aerc) {
+func (status *StatusLine) SetAerc(aerc *Application) {
 	status.aerc = aerc
 }
 

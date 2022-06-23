@@ -16,11 +16,11 @@ func (Help) Aliases() []string {
 	return []string{"help"}
 }
 
-func (Help) Complete(aerc *widgets.Aerc, args []string) []string {
+func (Help) Complete(aerc *widgets.Application, args []string) []string {
 	return nil
 }
 
-func (Help) Execute(aerc *widgets.Aerc, args []string) error {
+func (Help) Execute(aerc *widgets.Application, args []string) error {
 	/*page := "aerc"
 	if len(args) == 2 {
 		page = "aerc-" + args[1]

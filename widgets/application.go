@@ -15,7 +15,7 @@ import (
 	"github.com/bluesign/discordo/lib/ui"
 )
 
-type Aerc struct {
+type Application struct {
 	cmd         func(cmd []string) error
 	cmdHistory  lib.History
 	complete    func(cmd string) []string
@@ -30,13 +30,12 @@ type Aerc struct {
 	pendingKeys []config.KeyStroke
 	prompts     *ui.Stack
 	tabs        *ui.Tabs
+	tab         *ui.Tab
 	ui          *ui.UI
 	beep        func() error
 	dialog      ui.DrawableInteractive
 
-	AccountView     *AccountView
-	selectedChannel string
-	SelectedMessage int
+	Controller *Controller
 }
 
 type Choice struct {
@@ -45,7 +44,7 @@ type Choice struct {
 	Command []string
 }
 
-func (aerc *Aerc) Connect() error {
+func (aerc *Application) Connect() error {
 
 	aerc.Session.UserAgent = "Mozilla/5.0 (X11; Linux x86_64; rv:97.0) Gecko/20100101 Firefox/97.0"
 	aerc.Session.Identify.Compress = false
@@ -55,21 +54,21 @@ func (aerc *Aerc) Connect() error {
 		OS:      "Linux",
 		Browser: "Firefox",
 	}
-	aerc.Session.AddHandlerOnce(aerc.AccountView.onSessionReady)
-	aerc.Session.AddHandler(aerc.AccountView.onSessionGuildCreate)
-	aerc.Session.AddHandler(aerc.AccountView.onSessionGuildDelete)
-	aerc.Session.AddHandler(aerc.AccountView.onSessionMessageCreate)
-	aerc.Session.AddHandler(aerc.AccountView.onSessionChannelCreate)
-	aerc.Session.AddHandler(aerc.AccountView.onSessionChannelDelete)
-	aerc.Session.AddHandler(aerc.AccountView.onSessionThreadCreate)
-	aerc.Session.AddHandler(aerc.AccountView.onSessionThreadDelete)
+	aerc.Session.AddHandlerOnce(aerc.Controller.onSessionReady)
+	aerc.Session.AddHandler(aerc.Controller.onSessionGuildCreate)
+	aerc.Session.AddHandler(aerc.Controller.onSessionGuildDelete)
+	aerc.Session.AddHandler(aerc.Controller.onSessionMessageCreate)
+	aerc.Session.AddHandler(aerc.Controller.onSessionChannelCreate)
+	aerc.Session.AddHandler(aerc.Controller.onSessionChannelDelete)
+	aerc.Session.AddHandler(aerc.Controller.onSessionThreadCreate)
+	aerc.Session.AddHandler(aerc.Controller.onSessionThreadDelete)
 
 	return aerc.Session.Open()
 }
 
-func NewAerc(token string, conf *config.MainConfig,
+func NewApp(token string, conf *config.MainConfig,
 	cmd func(cmd []string) error, complete func(cmd string) []string,
-	cmdHistory lib.History) *Aerc {
+	cmdHistory lib.History) *Application {
 
 	tabs := ui.NewTabs(&conf.Ui)
 
@@ -88,7 +87,7 @@ func NewAerc(token string, conf *config.MainConfig,
 	grid.AddChild(tabs.TabContent).At(1, 0)
 	grid.AddChild(statusbar).At(2, 0)
 
-	aerc := &Aerc{
+	app := &Application{
 		conf:       conf,
 		cmd:        cmd,
 		cmdHistory: cmdHistory,
@@ -100,30 +99,27 @@ func NewAerc(token string, conf *config.MainConfig,
 		tabs:       tabs,
 	}
 
-	statusline.SetAerc(aerc)
-	//conf.Triggers.ExecuteCommand = cmd
-	accView, _ := NewAccountView(aerc, aerc.conf, aerc)
+	accView, _ := NewController(app, app.conf, app)
 	accView.Focus(true)
-	aerc.NewTab(accView, "[ Discord ]")
-	aerc.AccountView = accView
+	app.tab = app.NewTab(accView, "[ Discord ]")
+	statusline.SetAerc(app)
 
-	//	}
+	app.Controller = accView
 
 	tabs.CloseTab = func(index int) {
-		//switch content := aerc.tabs.Tabs[index].Content.(type) {
 
 	}
 
-	aerc.Session = astatine.New(token)
+	app.Session = astatine.New(token)
 
-	return aerc
+	return app
 }
 
-func (aerc *Aerc) OnBeep(f func() error) {
+func (aerc *Application) OnBeep(f func() error) {
 	aerc.beep = f
 }
 
-func (aerc *Aerc) Beep() {
+func (aerc *Application) Beep() {
 	if aerc.beep == nil {
 		aerc.logger.Printf("should beep, but no beeper")
 		return
@@ -133,7 +129,7 @@ func (aerc *Aerc) Beep() {
 	}
 }
 
-func (aerc *Aerc) Tick() bool {
+func (aerc *Application) Tick() bool {
 	more := false
 
 	if len(aerc.prompts.Children()) > 0 {
@@ -152,25 +148,25 @@ func (aerc *Aerc) Tick() bool {
 	return more
 }
 
-func (aerc *Aerc) Children() []ui.Drawable {
+func (aerc *Application) Children() []ui.Drawable {
 	return aerc.grid.Children()
 }
 
-func (aerc *Aerc) OnInvalidate(onInvalidate func(d ui.Drawable)) {
+func (aerc *Application) OnInvalidate(onInvalidate func(d ui.Drawable)) {
 	aerc.grid.OnInvalidate(func(_ ui.Drawable) {
 		onInvalidate(aerc)
 	})
 }
 
-func (aerc *Aerc) Invalidate() {
+func (aerc *Application) Invalidate() {
 	aerc.grid.Invalidate()
 }
 
-func (aerc *Aerc) Focus(focus bool) {
+func (aerc *Application) Focus(focus bool) {
 	// who cares
 }
 
-func (aerc *Aerc) Draw(ctx *ui.Context) {
+func (aerc *Application) Draw(ctx *ui.Context) {
 	aerc.grid.Draw(ctx)
 	if aerc.dialog != nil {
 		aerc.dialog.Draw(ctx) //ctx.Subcontext(4, ctx.Height()/2-2,
@@ -178,12 +174,12 @@ func (aerc *Aerc) Draw(ctx *ui.Context) {
 	}
 }
 
-func (aerc *Aerc) getBindings() *config.KeyBindings {
+func (aerc *Application) getBindings() *config.KeyBindings {
 
 	return aerc.conf.Bindings.Global
 }
 
-func (aerc *Aerc) simulate(strokes []config.KeyStroke) {
+func (aerc *Application) simulate(strokes []config.KeyStroke) {
 	aerc.pendingKeys = []config.KeyStroke{}
 	aerc.simulating += 1
 	for _, stroke := range strokes {
@@ -194,7 +190,7 @@ func (aerc *Aerc) simulate(strokes []config.KeyStroke) {
 	aerc.simulating -= 1
 }
 
-func (aerc *Aerc) Event(event tcell.Event) bool {
+func (aerc *Application) Event(event tcell.Event) bool {
 	if aerc.dialog != nil {
 		switch event := event.(type) {
 		case *tcell.EventKey:
@@ -236,19 +232,6 @@ func (aerc *Aerc) Event(event tcell.Event) bool {
 		case config.BINDING_NOT_FOUND:
 		}
 
-		/*if bindings.Globals {
-			result, strokes = aerc.conf.Bindings.Global.
-				GetBinding(aerc.pendingKeys)
-			switch result {
-			case config.BINDING_FOUND:
-				aerc.simulate(strokes)
-				return true
-			case config.BINDING_INCOMPLETE:
-				incomplete = true
-			case config.BINDING_NOT_FOUND:
-			}
-		}*/
-
 		if !incomplete {
 			aerc.pendingKeys = []config.KeyStroke{}
 			exKey := bindings.ExKey
@@ -256,7 +239,7 @@ func (aerc *Aerc) Event(event tcell.Event) bool {
 				// Keybindings still use : even if you change the ex key
 				//exKey = aerc.conf.Bindings.Global.ExKey
 			}
-			if aerc.AccountView.msginput.TextInput.String() == "Message..." && event.Key() == exKey.Key && event.Rune() == exKey.Rune {
+			if aerc.Controller.messageInput.TextInput.String() == "Message..." && event.Key() == exKey.Key && event.Rune() == exKey.Rune {
 				aerc.BeginExCommand("")
 				return true
 			}
@@ -277,61 +260,61 @@ func (aerc *Aerc) Event(event tcell.Event) bool {
 	return false
 }
 
-func (aerc *Aerc) Config() *config.MainConfig {
+func (aerc *Application) Config() *config.MainConfig {
 	return aerc.conf
 }
 
-func (aerc *Aerc) Logger() *log.Logger {
+func (aerc *Application) Logger() *log.Logger {
 	return aerc.logger
 }
 
-func (aerc *Aerc) SelectedTab() ui.Drawable {
+func (aerc *Application) SelectedTab() ui.Drawable {
 	return aerc.tabs.Tabs[aerc.tabs.Selected].Content
 }
 
-func (aerc *Aerc) SelectedTabIndex() int {
+func (aerc *Application) SelectedTabIndex() int {
 	return aerc.tabs.Selected
 }
 
-func (aerc *Aerc) NumTabs() int {
+func (aerc *Application) NumTabs() int {
 	return len(aerc.tabs.Tabs)
 }
 
-func (aerc *Aerc) NewTab(clickable ui.Drawable, name string) *ui.Tab {
+func (aerc *Application) NewTab(clickable ui.Drawable, name string) *ui.Tab {
 	tab := aerc.tabs.Add(clickable, name)
 	aerc.tabs.Select(len(aerc.tabs.Tabs) - 1)
 	return tab
 }
 
-func (aerc *Aerc) RemoveTab(tab ui.Drawable) {
+func (aerc *Application) RemoveTab(tab ui.Drawable) {
 	aerc.tabs.Remove(tab)
 }
 
-func (aerc *Aerc) ReplaceTab(tabSrc ui.Drawable, tabTarget ui.Drawable, name string) {
+func (aerc *Application) ReplaceTab(tabSrc ui.Drawable, tabTarget ui.Drawable, name string) {
 	aerc.tabs.Replace(tabSrc, tabTarget, name)
 }
 
-func (aerc *Aerc) MoveTab(i int) {
+func (aerc *Application) MoveTab(i int) {
 	aerc.tabs.MoveTab(i)
 }
 
-func (aerc *Aerc) PinTab() {
+func (aerc *Application) PinTab() {
 	aerc.tabs.PinTab()
 }
 
-func (aerc *Aerc) UnpinTab() {
+func (aerc *Application) UnpinTab() {
 	aerc.tabs.UnpinTab()
 }
 
-func (aerc *Aerc) NextTab() {
+func (aerc *Application) NextTab() {
 	aerc.tabs.NextTab()
 }
 
-func (aerc *Aerc) PrevTab() {
+func (aerc *Application) PrevTab() {
 	aerc.tabs.PrevTab()
 }
 
-func (aerc *Aerc) SelectTab(name string) bool {
+func (aerc *Application) SelectTab(name string) bool {
 	for i, tab := range aerc.tabs.Tabs {
 		if tab.Name == name {
 			aerc.tabs.Select(i)
@@ -341,7 +324,7 @@ func (aerc *Aerc) SelectTab(name string) bool {
 	return false
 }
 
-func (aerc *Aerc) SelectTabIndex(index int) bool {
+func (aerc *Application) SelectTabIndex(index int) bool {
 	for i := range aerc.tabs.Tabs {
 		if i == index {
 			aerc.tabs.Select(i)
@@ -351,7 +334,7 @@ func (aerc *Aerc) SelectTabIndex(index int) bool {
 	return false
 }
 
-func (aerc *Aerc) TabNames() []string {
+func (aerc *Application) TabNames() []string {
 	var names []string
 	for _, tab := range aerc.tabs.Tabs {
 		names = append(names, tab.Name)
@@ -359,32 +342,32 @@ func (aerc *Aerc) TabNames() []string {
 	return names
 }
 
-func (aerc *Aerc) SelectPreviousTab() bool {
+func (aerc *Application) SelectPreviousTab() bool {
 	return aerc.tabs.SelectPrevious()
 }
 
 // TODO: Use per-account status lines, but a global ex line
-func (aerc *Aerc) SetStatus(status string) *StatusMessage {
+func (aerc *Application) SetStatus(status string) *StatusMessage {
 	return aerc.statusline.Set(status)
 }
 
-func (aerc *Aerc) SetError(status string) *StatusMessage {
+func (aerc *Application) SetError(status string) *StatusMessage {
 	return aerc.statusline.SetError(status)
 }
 
-func (aerc *Aerc) PushStatus(text string, expiry time.Duration) *StatusMessage {
+func (aerc *Application) PushStatus(text string, expiry time.Duration) *StatusMessage {
 	return aerc.statusline.Push(text, expiry)
 }
 
-func (aerc *Aerc) PushError(text string) *StatusMessage {
+func (aerc *Application) PushError(text string) *StatusMessage {
 	return aerc.statusline.PushError(text)
 }
 
-func (aerc *Aerc) PushSuccess(text string) *StatusMessage {
+func (aerc *Application) PushSuccess(text string) *StatusMessage {
 	return aerc.statusline.PushSuccess(text)
 }
 
-func (aerc *Aerc) focus(item ui.Interactive) {
+func (aerc *Application) focus(item ui.Interactive) {
 	if aerc.focused == item {
 		return
 	}
@@ -405,7 +388,7 @@ func (aerc *Aerc) focus(item ui.Interactive) {
 	}
 }
 
-func (aerc *Aerc) BeginExCommand(cmd string) {
+func (aerc *Application) BeginExCommand(cmd string) {
 	previous := aerc.focused
 	exline := NewExLine(aerc.conf, cmd, func(cmd string) {
 		parts, err := shlex.Split(cmd)
@@ -432,7 +415,7 @@ func (aerc *Aerc) BeginExCommand(cmd string) {
 
 }
 
-func (aerc *Aerc) RegisterPrompt(prompt string, cmd []string) {
+func (aerc *Application) RegisterPrompt(prompt string, cmd []string) {
 	p := NewPrompt(aerc.conf, prompt, func(text string) {
 		if text != "" {
 			cmd = append(cmd, text)
@@ -447,7 +430,7 @@ func (aerc *Aerc) RegisterPrompt(prompt string, cmd []string) {
 	aerc.prompts.Push(p)
 }
 
-func (aerc *Aerc) RegisterChoices(choices []Choice) {
+func (aerc *Application) RegisterChoices(choices []Choice) {
 	cmds := make(map[string][]string)
 	texts := []string{}
 	for _, c := range choices {
@@ -474,7 +457,7 @@ func (aerc *Aerc) RegisterChoices(choices []Choice) {
 	aerc.prompts.Push(p)
 }
 
-func (aerc *Aerc) AddDialog(d ui.DrawableInteractive) {
+func (aerc *Application) AddDialog(d ui.DrawableInteractive) {
 	aerc.dialog = d
 	aerc.dialog.OnInvalidate(func(_ ui.Drawable) {
 		aerc.Invalidate()
@@ -483,13 +466,13 @@ func (aerc *Aerc) AddDialog(d ui.DrawableInteractive) {
 	return
 }
 
-func (aerc *Aerc) CloseDialog() {
+func (aerc *Application) CloseDialog() {
 	aerc.dialog = nil
 	aerc.Invalidate()
 	return
 }
 
-func (aerc *Aerc) Initialize(ui *ui.UI) {
+func (aerc *Application) Initialize(ui *ui.UI) {
 	aerc.ui = ui
 }
 

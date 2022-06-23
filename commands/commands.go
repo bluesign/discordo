@@ -12,8 +12,8 @@ import (
 
 type Command interface {
 	Aliases() []string
-	Execute(*widgets.Aerc, []string) error
-	Complete(*widgets.Aerc, []string) []string
+	Execute(*widgets.Application, []string) error
+	Complete(*widgets.Application, []string) []string
 }
 
 type Commands map[string]Command
@@ -56,7 +56,7 @@ type CommandSource interface {
 	Commands() *Commands
 }
 
-func (cmds *Commands) ExecuteCommand(aerc *widgets.Aerc, args []string) error {
+func (cmds *Commands) ExecuteCommand(aerc *widgets.Application, args []string) error {
 	if len(args) == 0 {
 		return errors.New("Expected a command.")
 	}
@@ -66,7 +66,7 @@ func (cmds *Commands) ExecuteCommand(aerc *widgets.Aerc, args []string) error {
 	return NoSuchCommand(args[0])
 }
 
-func (cmds *Commands) GetCompletions(aerc *widgets.Aerc, cmd string) []string {
+func (cmds *Commands) GetCompletions(aerc *widgets.Application, cmd string) []string {
 	args, err := shlex.Split(cmd)
 	if err != nil {
 		return nil
@@ -128,7 +128,7 @@ func CompletionFromList(valid []string, args []string) []string {
 	return out
 }
 
-func GetLabels(aerc *widgets.Aerc, args []string) []string {
+func GetLabels(aerc *widgets.Application, args []string) []string {
 
 	out := make([]string, 0)
 

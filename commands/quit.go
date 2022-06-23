@@ -16,7 +16,7 @@ func (Quit) Aliases() []string {
 	return []string{"quit", "exit"}
 }
 
-func (Quit) Complete(aerc *widgets.Aerc, args []string) []string {
+func (Quit) Complete(aerc *widgets.Application, args []string) []string {
 	return nil
 }
 
@@ -26,7 +26,7 @@ func (err ErrorExit) Error() string {
 	return "exit"
 }
 
-func (Quit) Execute(aerc *widgets.Aerc, args []string) error {
+func (Quit) Execute(aerc *widgets.Application, args []string) error {
 	if len(args) != 1 {
 		return errors.New("Usage: quit")
 	}

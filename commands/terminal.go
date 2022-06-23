@@ -18,12 +18,12 @@ func (Terminal) Aliases() []string {
 	return []string{"terminal"}
 }
 
-func (Terminal) Complete(aerc *widgets.Aerc, args []string) []string {
+func (Terminal) Complete(aerc *widgets.Application, args []string) []string {
 
 	return []string{}
 }
 
-func (Terminal) Execute(aerc *widgets.Aerc, args []string) error {
+func (Terminal) Execute(aerc *widgets.Application, args []string) error {
 
 	terminal, _ := widgets.NewTerminal(exec.Command("sh", "-c", args[1]))
 	terminal.OnClose = func(err error) {
@@ -32,6 +32,6 @@ func (Terminal) Execute(aerc *widgets.Aerc, args []string) error {
 	}
 	aerc.NewTab(terminal, args[1])
 
-	aerc.AccountView.Invalidate()
+	aerc.Controller.Invalidate()
 	return nil
 }

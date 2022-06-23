@@ -19,21 +19,21 @@ func (GoToReference) Aliases() []string {
 	return []string{"xref"}
 }
 
-func (GoToReference) Complete(aerc *widgets.Aerc, args []string) []string {
+func (GoToReference) Complete(aerc *widgets.Application, args []string) []string {
 
 	return []string{}
 }
 
-func (GoToReference) Execute(aerc *widgets.Aerc, args []string) error {
+func (GoToReference) Execute(aerc *widgets.Application, args []string) error {
 	if len(args) < 1 {
 		return errors.New("Usage: xref  	PS: works when a message in selected ")
 	}
 
-	if aerc.AccountView.MessageList() == nil || len(aerc.AccountView.MessageList().GetHighlights()) == 0 {
+	if aerc.Controller.MessageList() == nil || len(aerc.Controller.MessageList().GetHighlights()) == 0 {
 		return errors.New("No Message Selected")
 	}
 
-	_, m := discord.FindMessageByID(aerc.AccountView.MessageList().Messages, aerc.AccountView.MessageList().GetHighlights()[0])
+	_, m := discord.FindMessageByID(aerc.Controller.SelectedChannel().Messages, aerc.Controller.MessageList().GetHighlights()[0])
 	if m == nil {
 		return errors.New("No Message Selected")
 	}
@@ -49,11 +49,11 @@ func (GoToReference) Execute(aerc *widgets.Aerc, args []string) error {
 
 	}
 
-	aerc.SelectedMessage, _ = discord.FindMessageByID(aerc.AccountView.MessageList().Messages, m.ReferencedMessage.ID)
-	aerc.AccountView.MessageList().
+	aerc.Controller.SelectedChannel().SelectedMessage = m.ReferencedMessage.ID
+	aerc.Controller.MessageList().
 		Highlight(m.ReferencedMessage.ID).
 		ScrollToHighlight()
 
-	aerc.AccountView.Invalidate()
+	aerc.Controller.Invalidate()
 	return nil
 }

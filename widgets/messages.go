@@ -16,11 +16,10 @@ import (
 
 type MessagesTextView struct {
 	*ui.TextView
-	app      *Aerc
-	Messages []*astatine.Message
+	app *Application
 }
 
-func NewMessagesTextView(app *Aerc) *MessagesTextView {
+func NewMessagesTextView(app *Application) *MessagesTextView {
 	mtv := &MessagesTextView{
 		TextView: ui.NewTextView(&app.conf.Ui),
 		app:      app,
@@ -29,6 +28,7 @@ func NewMessagesTextView(app *Aerc) *MessagesTextView {
 	mtv.SetDynamicColors(true)
 	mtv.SetRegions(true)
 	mtv.SetWordWrap(true)
+
 	mtv.SetChangedFunc(func() {
 	})
 
@@ -59,6 +59,40 @@ func (mtv *MessagesTextView) DownloadAttachment(as []*astatine.MessageAttachment
 	return nil
 }
 
+func (mtv *MessagesTextView) GetNextMessageID(id string) string {
+
+	old := ""
+	messages := mtv.app.Controller.SelectedChannel().Messages
+	if messages[len(messages)-1].ID == id {
+		return id
+	}
+
+	for _, m := range messages {
+		if old == id {
+			return m.ID
+		}
+		old = m.ID
+	}
+	return id
+}
+
+func (mtv *MessagesTextView) GetPreviousMessageID(id string) string {
+
+	old := ""
+	messages := mtv.app.Controller.SelectedChannel().Messages
+	if messages[0].ID == id {
+		return id
+	}
+
+	for _, m := range messages {
+		if m.ID == id {
+			return old
+		}
+		old = m.ID
+	}
+	return id
+}
+
 func (mtv *MessagesTextView) Event(event tcell.Event) bool {
 
 	switch event := event.(type) {
@@ -74,55 +108,85 @@ func (mtv *MessagesTextView) Event(event tcell.Event) bool {
 		switch key {
 		case tcell.KeyRune:
 			switch event.Rune() {
-			case 'k':
+			case 'j':
 				if len(mtv.GetHighlights()) == 0 {
-					mtv.app.SelectedMessage = 0
+					mtv.app.Controller.SelectedChannel().SelectedMessage = mtv.GetPreviousMessageID("")
 				} else {
-					mtv.app.SelectedMessage++
-					if mtv.app.SelectedMessage >= len(mtv.app.AccountView.msglist.Messages) {
-						mtv.app.SelectedMessage = len(mtv.app.AccountView.msglist.Messages) - 1
-					}
+					mtv.app.Controller.SelectedChannel().SelectedMessage = mtv.GetPreviousMessageID(mtv.GetHighlights()[0])
 				}
-				mtv.app.AccountView.msglist.
-					Highlight(mtv.app.AccountView.msglist.Messages[mtv.app.SelectedMessage].ID).
+				mtv.app.Controller.messages.
+					Highlight(mtv.app.Controller.SelectedChannel().SelectedMessage).
 					ScrollToHighlight()
 				return true
 
-			case 'j':
+			case 'k':
 				if len(mtv.GetHighlights()) == 0 {
-					mtv.app.SelectedMessage = 0
+					mtv.app.Controller.SelectedChannel().SelectedMessage = mtv.GetNextMessageID("")
 				} else {
-					mtv.app.SelectedMessage--
-					if mtv.app.SelectedMessage < 0 {
-						mtv.app.SelectedMessage = 0
-					}
+					mtv.app.Controller.SelectedChannel().SelectedMessage = mtv.GetNextMessageID(mtv.GetHighlights()[0])
 				}
-				mtv.app.AccountView.msglist.
-					Highlight(mtv.app.AccountView.msglist.Messages[mtv.app.SelectedMessage].ID).
+				mtv.app.Controller.messages.
+					Highlight(mtv.app.Controller.SelectedChannel().SelectedMessage).
 					ScrollToHighlight()
 				return true
+
 			case 'u':
-				_, m := discord.FindMessageByID(mtv.app.AccountView.msglist.Messages, mtv.GetHighlights()[0])
+				_, m := discord.FindMessageByID(mtv.app.Controller.SelectedChannel().Messages, mtv.GetHighlights()[0])
 				if m == nil {
 					return false
 				}
 				mtv.app.Session.MessageReactionAdd(m.ChannelID, m.ID, "👍")
-				mtv.app.AccountView.onSelected(mtv.app.AccountView.ChannelTree.GetCurrentNode())
 
 				return true
 			case 'G':
-				mtv.app.SelectedMessage = 0
-				mtv.app.AccountView.msglist.
-					Highlight(mtv.app.AccountView.msglist.Messages[mtv.app.SelectedMessage].ID).
+				mtv.app.Controller.SelectedChannel().SelectedMessage = mtv.GetPreviousMessageID("")
+
+				mtv.app.Controller.messages.
+					Highlight(mtv.app.Controller.SelectedChannel().SelectedMessage).
+					ScrollToHighlight()
+
+			case 'g':
+				mtv.app.Controller.SelectedChannel().SelectedMessage = mtv.GetNextMessageID("")
+
+				mtv.app.Controller.messages.
+					Highlight(mtv.app.Controller.SelectedChannel().SelectedMessage).
 					ScrollToHighlight()
 
 				return true
 
-			case 'g':
-				mtv.app.SelectedMessage = len(mtv.app.AccountView.msglist.Messages) - 1
-				mtv.app.AccountView.msglist.
-					Highlight(mtv.app.AccountView.msglist.Messages[mtv.app.SelectedMessage].ID).
-					ScrollToHighlight()
+			case 'l':
+				if len(mtv.GetHighlights()) == 0 {
+					return false
+				}
+				//enter thread
+				_, m := discord.FindMessageByID(mtv.app.Controller.SelectedChannel().Messages, mtv.GetHighlights()[0])
+				mtv.app.Controller.SelectedChannel().SelectedMessage = m.ID
+				if m == nil {
+					return false
+				}
+				if m.Thread != nil {
+					mtv.app.Controller.onChannelSelect(m.Thread.ID, nil)
+				}
+				return true
+
+			case 'h':
+				m := mtv.app.Controller.SelectedChannel().Messages[0]
+				if m == nil {
+					return false
+				}
+
+				c, err := mtv.app.Session.State.Channel(m.ChannelID)
+				if c == nil {
+					c, err = mtv.app.Session.Channel(m.ChannelID)
+				}
+
+				if err == nil && c.IsThread() {
+					mtv.app.Controller.onChannelSelect(c.ParentID, nil)
+					return true
+				} else {
+					mtv.app.Controller.grid.SetFocus(0, 0)
+					return true
+				}
 
 				return true
 
@@ -141,7 +205,7 @@ func (mtv *MessagesTextView) Event(event tcell.Event) bool {
 				return true
 
 			case 'c':
-				mtv.app.AccountView.grid.SetFocus(0, 0)
+				mtv.app.Controller.grid.SetFocus(0, 0)
 				return true
 
 			case 'y':
@@ -150,16 +214,16 @@ func (mtv *MessagesTextView) Event(event tcell.Event) bool {
 				return true
 
 			case 'i':
-				mtv.app.AccountView.msginput.Focus(true)
-				mtv.app.AccountView.msginput.Prompt(" ")
-				mtv.app.AccountView.grid.SetFocus(1, 1)
+				mtv.app.Controller.messageInput.Focus(true)
+				mtv.app.Controller.messageInput.Prompt(" ")
+				mtv.app.Controller.grid.SetFocus(1, 1)
 				return true
 
 			case 'r':
 				if len(mtv.GetHighlights()) > 0 {
-					mtv.app.AccountView.msginput.Prompt("@ ")
-					mtv.app.AccountView.msginput.Focus(true)
-					mtv.app.AccountView.grid.SetFocus(1, 1)
+					mtv.app.Controller.messageInput.Prompt("@ ")
+					mtv.app.Controller.messageInput.Focus(true)
+					mtv.app.Controller.grid.SetFocus(1, 1)
 					return true
 				} else {
 					//nothing to reply
@@ -201,10 +265,10 @@ func (mtv *MessagesTextView) OpenAttachment(as []*astatine.MessageAttachment) er
 
 type MessageInputField struct {
 	*ui.TextInput
-	app *Aerc
+	app *Application
 }
 
-func NewMessageInputField(app *Aerc) *MessageInputField {
+func NewMessageInputField(app *Application) *MessageInputField {
 	mi := &MessageInputField{
 		TextInput: ui.NewTextInput("", app.Config().Ui),
 		app:       app,

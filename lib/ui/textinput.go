@@ -105,14 +105,16 @@ func (ti *TextInput) Draw(ctx *Context) {
 	defaultStyle := ti.uiConfig.GetStyle(config.STYLE_DEFAULT)
 	ctx.Fill(0, 0, ctx.Width(), ctx.Height(), ' ', defaultStyle)
 
-	if scroll>=len(ti.text) && len(ti.text)>1{
-		scroll=len(ti.text)-1
+	if scroll >= len(ti.text) && len(ti.text) > 1 {
+		scroll = len(ti.text) - 1
+	}
 
+	if len(ti.text) == 0 {
+		scroll = 0
 	}
 	text := ti.text[scroll:]
 	sindex := ti.index - scroll
 
-	
 	if ti.password {
 		x := ctx.Printf(0, 0, defaultStyle, "%s", ti.prompt)
 		cells := runewidth.StringWidth(string(text))

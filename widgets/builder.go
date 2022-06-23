@@ -39,11 +39,16 @@ func buildMessage(Session *astatine.Session, m *astatine.Message, old *astatine.
 			if m.Thread != nil {
 				pre = fmt.Sprintf(" (thread %d messages) ", m.Thread.MessageCount)
 			}
-			b.WriteString(buildAuthor(m.Author, Session.State.User.ID, fmt.Sprintf("%s %s", pre, m.Timestamp.Format(time.Stamp))))
+			reactions := ""
+			for _, react := range m.Reactions {
+				reactions = fmt.Sprintf("%s %d %s ", reactions, react.Count, react.Emoji.Name)
+			}
+
+			b.WriteString(buildAuthor(m.Author, Session.State.User.ID, fmt.Sprintf("%s %s %s", pre, m.Timestamp.Format(time.Stamp), reactions)))
 			b.WriteString("\n")
 		}
 
-		/*b.WriteString("[::d]")
+		/*b.WrteString("[::d]")
 		b.WriteString(m.Timestamp.Format(time.Stamp))
 		b.WriteString("[::-]")
 		b.WriteByte('\n')*/
@@ -132,13 +137,6 @@ func buildContent(b *strings.Builder, m *astatine.Message, clientID string) {
 
 		//w.Write([]byte(img.Render()))
 
-		reactions := ""
-		for _, react := range m.Reactions {
-			reactions = fmt.Sprintf("%s %d %s ", reactions, react.Count, react.Emoji.Name)
-		}
-		if reactions != "" {
-			b.WriteString(fmt.Sprintf("\n{ %s }", reactions))
-		}
 	}
 
 }

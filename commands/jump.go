@@ -23,7 +23,7 @@ func (ChangeDirectory) Aliases() []string {
 	return []string{"jump"}
 }
 
-func (ChangeDirectory) Complete(aerc *widgets.Aerc, args []string) []string {
+func (ChangeDirectory) Complete(aerc *widgets.Application, args []string) []string {
 	input := strings.Join(args, " ")
 
 	var channels []string
@@ -61,12 +61,12 @@ func SelectNodeByLabel(label string, root *ui.TreeNode, tree *ui.TreeView) bool 
 	return true
 }
 
-func (ChangeDirectory) Execute(aerc *widgets.Aerc, args []string) error {
+func (ChangeDirectory) Execute(aerc *widgets.Application, args []string) error {
 	if len(args) < 1 {
 		return errors.New("Usage: jump [ channel | DM ]")
 	}
 
-	SelectNodeByLabel(strings.Join(args[1:], " "), aerc.AccountView.ChannelTree.GetRoot(), aerc.AccountView.ChannelTree)
-	aerc.AccountView.Invalidate()
+	//SelectNodeByLabel(strings.Join(args[1:], " "), aerc.AccountView.ChannelTree.GetRoot(), aerc.AccountView.ChannelTree)
+	aerc.Controller.Invalidate()
 	return nil
 }

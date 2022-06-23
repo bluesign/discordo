@@ -90,7 +90,7 @@ func (YankMessage) Aliases() []string {
 	return []string{"yankMessage", "yank"}
 }
 
-func (YankMessage) Complete(aerc *widgets.Aerc, args []string) []string {
+func (YankMessage) Complete(aerc *widgets.Application, args []string) []string {
 
 	return []string{}
 }
@@ -111,15 +111,15 @@ type SmartDetect struct {
 	actions []widgets.Choice
 }
 
-func (y YankMessage) Execute(aerc *widgets.Aerc, args []string) error {
+func (y YankMessage) Execute(aerc *widgets.Application, args []string) error {
 
 	if args[0] == "yankMessage" {
 
-		if aerc.AccountView.MessageList() == nil || len(aerc.AccountView.MessageList().GetHighlights()) == 0 {
+		if aerc.Controller.MessageList() == nil || len(aerc.Controller.MessageList().GetHighlights()) == 0 {
 			return errors.New("No Message Selected")
 		}
 
-		_, m := discord.FindMessageByID(aerc.AccountView.MessageList().Messages, aerc.AccountView.MessageList().GetHighlights()[0])
+		_, m := discord.FindMessageByID(aerc.Controller.SelectedChannel().Messages, aerc.Controller.MessageList().GetHighlights()[0])
 		if m == nil {
 			return errors.New("No Message Selected")
 		}
@@ -200,7 +200,7 @@ func (y YankMessage) Execute(aerc *widgets.Aerc, args []string) error {
 
 		dialog.Focus(true)
 
-		aerc.AccountView.Invalidate()
+		aerc.Controller.Invalidate()
 
 		return nil
 	}

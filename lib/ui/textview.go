@@ -10,7 +10,6 @@ import (
 
 	"github.com/bluesign/discordo/config"
 	"github.com/gdamore/tcell/v2"
-	colorful "github.com/lucasb-eyer/go-colorful"
 	runewidth "github.com/mattn/go-runewidth"
 	"github.com/rivo/uniseg"
 )
@@ -543,6 +542,7 @@ func (t *TextView) Highlight(regionIDs ...string) *TextView {
 			continue
 		}
 		t.highlights[id] = struct{}{}
+
 	}
 	t.index = nil
 
@@ -1190,18 +1190,8 @@ func (t *TextView) Draw(ctx *Context) {
 					}
 				}
 				if highlighted {
-					fg, bg, _ := style.Decompose()
-					if bg == tcell.ColorBlack {
-						r, g, b := fg.RGB()
-						c := colorful.Color{R: float64(r) / 255, G: float64(g) / 255, B: float64(b) / 255}
-						_, _, li := c.Hcl()
-						if li < .5 {
-							bg = tcell.ColorWhite
-						} else {
-							bg = tcell.ColorBlack
-						}
-					}
-					style = style.Background(fg).Foreground(bg)
+					fg, _, _ := style.Decompose()
+					style = style.Background(tcell.ColorBlack).Foreground(fg)
 				}
 
 				// Skip to the right.
