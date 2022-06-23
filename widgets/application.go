@@ -236,8 +236,6 @@ func (aerc *Application) Event(event tcell.Event) bool {
 			aerc.pendingKeys = []config.KeyStroke{}
 			exKey := bindings.ExKey
 			if aerc.simulating > 0 {
-				// Keybindings still use : even if you change the ex key
-				//exKey = aerc.conf.Bindings.Global.ExKey
 			}
 			if aerc.Controller.messageInput.TextInput.String() == "Message..." && event.Key() == exKey.Key && event.Rune() == exKey.Rune {
 				aerc.BeginExCommand("")
